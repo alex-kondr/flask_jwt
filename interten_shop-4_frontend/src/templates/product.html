@@ -1,0 +1,12 @@
+{% extends "_base.html" %}
+
+{% block content %}
+  <main class="container">
+    <section class="mt-3 pb-5">
+      <h1 class="display-3 mt-4">{{ product.name }}</h1>
+      <img src="{{ product.img_url }}" width="10px" class="w-75">
+      <p class="my-4 w-75">{{ product.description }}</p>
+      <a href="{{ url_for('buy_product', id=product.id) }}" class="btn btn-success btn-lg">{{ product.price }} грн</a>
+    </section>
+  </main>
+{% endblock content %}

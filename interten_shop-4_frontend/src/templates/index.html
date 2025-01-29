@@ -1,0 +1,27 @@
+{% extends "_base.html" %}
+
+{% block content %}
+  <main class="container mt-3">
+    <div class="row mt-5">
+
+      {% for product in products %}
+      <div class="col-4">
+        <div class="card mb-4">
+          <div class="embed-responsive embed-responsive-16by9">
+             <img class="card-img-top embed-responsive-item" src="{{ product.img_url }}"/>
+          </div>
+          <div class="card-body">
+            <h2 class="h5 card-title">{{ product.name|truncate(30) }}</h2>
+            <p class="card-text">{{ product.description|truncate(50) }}</p>
+            <p class="card-text">
+              {{ product.price }} грн
+              <a href="{{ url_for('get_product', id=product.id) }}" class="btn btn-sm btn-primary">Про товар</a>
+            </p>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+
+    </div>
+  </main>
+{% endblock content %}
