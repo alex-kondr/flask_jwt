@@ -61,10 +61,9 @@ class User(Base):
     first_name: Mapped[str] = mapped_column(String(100))
     last_name: Mapped[str] = mapped_column(String(100))
     email: Mapped[str] = mapped_column(String(), unique=True)
-    __password: Mapped[str] = mapped_column(String())
-    access_token: Mapped[str] = mapped_column(String())
-    refresh_token: Mapped[str] = mapped_column(String())
-    time_password: Mapped[datetime] = mapped_column(DateTime())
+    __password: Mapped[str] = mapped_column(String(), nullable=False)
+    access_token: Mapped[str] = mapped_column(String(), nullable=True, default=None)
+    refresh_token: Mapped[str] = mapped_column(String(), nullable=True, default=None)
     is_admin: Mapped[bool] = mapped_column(Boolean(), default=False)
     products: Mapped[List[Product]] = relationship(secondary=user_prod_assoc)
     shop_list: Mapped[List[Product]] = relationship(secondary=user_shop_list_assoc)
@@ -73,20 +72,27 @@ class User(Base):
     def password(self):
         return "Don`t use this"
 
-    def generate_hash_pass(self, password: str):
-        self.__password = generate_password_hash(password)
+    @password.setter
+    def password(self, pwd: str):
+        self.__password = generate_password_hash(pwd)
 
-    def get_tokens(self, password):
+    def get_tokens(self, password) -> dict[str, str] | dict[None, None]:
         if check_password_hash(self.__password, password):
             self.access_token = create_access_token(identity=self.email)
             self.refresh_token = create_refresh_token(identity=self.email)
-            return self.access_token, self.refresh_token
-        return None, None
+            return dict(
+                access_token=create_access_token(identity=self.email),
+                refresh_token=create_refresh_token(identity=self.email)
+            )
+        return dict(
+                access_token=None,
+                refresh_token=None
+        )
 
-    def is_verified_token(self, access_token):
-        try:
+    # def is_verified_token(self, access_token):
+    #     try:
             
 
-    def get_refresh_token(self, refresh_token):
+    # def get_refresh_token(self, refresh_token):
         
 
