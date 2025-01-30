@@ -1,12 +1,12 @@
 import os
 import binascii
 from datetime import timedelta
-from enum import Enum, auto
 
 from flask import Flask, jsonify, request
 from dotenv import load_dotenv
 from flask_restful import Resource, Api, reqparse
-from flask_jwt_extended import create_access_token, get_current_user, jwt_required, JWTManager, get_jwt_identity
+from flask_jwt_extended import create_access_token, jwt_required, JWTManager, get_jwt_identity
+from flask_migrate import Migrate
 
 from src.database.models import db
 from src.data import parse_data
@@ -23,6 +23,7 @@ app.config["JWT_REFRESH_TOKEN_EXPIRES"] = timedelta(days=30)
 db.init_app(app)
 api = Api(app)
 jwt = JWTManager(app)
+migrate = Migrate(app, db)
 
 
 # with app.app_context():
@@ -30,9 +31,17 @@ jwt = JWTManager(app)
 #     parse_data.get_products()
 
 
-class TypeHTTPRequest(Enum):
-    user = auto()
-    token = auto()
+# @jwt.user_identity_loader
+# def user_identity_lookup(user):
+#     # input(f"{user = }")
+#     return jsonify(user)
+
+
+# @jwt.user_lookup_loader
+# def user_lookup_callback(_jwt_header, jwt_data):
+#     # input(f"{jwt_data = }")
+#     identity = jwt_data["sub"]
+#     return db_actions.get_user(identity)
 
 
 class ProductAPI(Resource):
@@ -104,13 +113,14 @@ class ProductAPI(Resource):
 class UserAPI(Resource):
     @jwt_required()
     def get(self):
-        current_user = get_jwt_identity()
-        print(f"{current_user = }")
-        resp = jsonify(dict(logged_in_as=current_user))
+        user_id = get_jwt_identity()
+        # user_id = "d857654357364086995fc811f52163c2"
+        user = db_actions.get_user(user_id)
+        # print(f"{dict(user) = }")
+        user.password = ""
+        resp = jsonify(user)
         resp.status_code = 200
         return resp
-
-
 
     def post(self):
         parser = reqparse.RequestParser()
@@ -119,34 +129,55 @@ class UserAPI(Resource):
         parser.add_argument("email")
         parser.add_argument("password")
         args = parser.parse_args()
-        db_actions.add_user(
-            first_name=args.get("first_name"),
-            last_name=args.get("last_name"),
-            email=args.get("email"),
-            password=args.get("password")
-        )
+        db_actions.add_user(**args)
         resp = jsonify("Додано")
         resp.status_code = 201
         return resp
 
 
 class TokenAPI(Resource):
-
+    @jwt_required(refresh=True)
+    def get(self):
+        user_id = get_jwt_identity()
+        return jsonify(access_token=create_access_token(identity=user_id))
 
     def post(self):
         parser = reqparse.RequestParser()
         parser.add_argument("email")
         parser.add_argument("password")
         args = parser.parse_args()
-        tokens = db_actions.get_tokens(email=args.get("email"), password=args.get("password"))
+        tokens = db_actions.get_tokens(**args)
         response = jsonify(tokens)
         response.status_code = 200
         return response
 
 
+class ShopCart(Resource):
+    @jwt_required()
+    def post(self):
+        user_id = get_jwt_identity()
+        parser = reqparse.RequestParser()
+        parser.add_argument("product_id")
+        args = parser.parse_args()
+        resp = jsonify(db_actions.add_prod_by_shop_cart(user_id=user_id, **args))
+        resp.status_code = 201
+        return resp
+
+
+class ShopList(Resource):
+    @jwt_required()
+    def post(self):
+        user_id = get_jwt_identity()
+        resp = jsonify(db_actions.add_shop_list_by_user(user_id=user_id))
+        resp.status_code = 201
+        return resp
+
+
 api.add_resource(ProductAPI, "/api/products/", "/api/products/<product_id>/")
 api.add_resource(UserAPI, "/api/users/", "/api/users/<user_id>/")
 api.add_resource(TokenAPI, "/api/tokens/")
+api.add_resource(ShopCart, "/api/add_product_by_shop_cart/")
+api.add_resource(ShopList, "/api/add_shop_list/")
 
 
 if __name__ == "__main__":
