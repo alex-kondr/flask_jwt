@@ -11,7 +11,7 @@ from flask_jwt_extended import get_jwt_identity, create_access_token, create_ref
 
 
 Base = declarative_base()
-db = SQLAlchemy(model_class=Base, engine_options=dict(echo=True))
+db = SQLAlchemy(model_class=Base)#, engine_options=dict(echo=True))
 
 
 rev_prod_assoc = Table(
@@ -78,32 +78,26 @@ class ShopList(Base):
 @dataclass
 class User(Base):
     __tablename__ = "users"
-    password_1: Mapped[str] = field(repr=False, default=mapped_column(String()))
 
     id: Mapped[str] = mapped_column(String(), primary_key=True, unique=True)
-    first_name: Mapped[str] = mapped_column(String(100))
-    last_name: Mapped[str] = mapped_column(String(100))
+    first_name: Mapped[str] = mapped_column(String(100), nullable=True)
+    last_name: Mapped[str] = mapped_column(String(100), nullable=True)
     email: Mapped[str] = mapped_column(String(), unique=True)
-    __password: Mapped[str] = mapped_column(String(), nullable=False)
+    _password: Mapped[str] = field(default=mapped_column(String(), nullable=False), repr=False, init=False, compare=False, kw_only=False)
     is_admin: Mapped[bool] = mapped_column(Boolean(), default=False)
     shopping_cart: Mapped[List[Product]] = relationship(secondary=user_shopping_cart_assoc)
     shop_list: Mapped[List[ShopList]] = relationship(secondary=user_shop_list_assoc)
 
     @property
-    def password(self):
-        return "Don`t use this"
+    def password(self): ...
 
     @password.setter
     def password(self, pwd: str):
-        self.__password = generate_password_hash(pwd)
+        self._password = generate_password_hash(pwd)
 
-    def get_tokens(self, password) -> dict[str, str] | dict[None, None]:
-        if check_password_hash(self.__password, password):
+    def get_tokens(self, password) -> dict[str, str]|None:
+        if check_password_hash(self._password, password):
             return dict(
                 access_token=create_access_token(identity=self.id),
                 refresh_token=create_refresh_token(identity=self.id)
             )
-        return dict(
-                access_token=None,
-                refresh_token=None
-        )

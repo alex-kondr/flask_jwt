@@ -1,6 +1,7 @@
 import os
 import binascii
 from datetime import timedelta
+from http import HTTPStatus
 
 from flask import Flask, jsonify, request
 from dotenv import load_dotenv
@@ -18,8 +19,8 @@ load_dotenv()
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("SQLALCHEMY_URI")
 app.config["JWT_SECRET_KEY"] = binascii.hexlify(os.urandom(24))
-app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
-app.config["JWT_REFRESH_TOKEN_EXPIRES"] = timedelta(days=30)
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(seconds=10)
+app.config["JWT_REFRESH_TOKEN_EXPIRES"] = timedelta(minutes=1)
 db.init_app(app)
 api = Api(app)
 jwt = JWTManager(app)
@@ -56,8 +57,8 @@ class ProductAPI(Resource):
                 "price": product.price
             })
 
-        data_json = jsonify(data)
-        data_json.status_code = 201
+        data_json = jsonify(data, status=HTTPStatus.CREATED)
+        # data_json.status_code = 201
         return data_json
 
     def get(self, product_id: str|None = None):
@@ -114,10 +115,11 @@ class UserAPI(Resource):
     @jwt_required()
     def get(self):
         user_id = get_jwt_identity()
-        # user_id = "d857654357364086995fc811f52163c2"
+        # user_id = "f91db7809c994fed8aeeeb01c749bb41"
         user = db_actions.get_user(user_id)
-        # print(f"{dict(user) = }")
-        user.password = ""
+        resp = jsonify(user)
+        user = resp.json
+        del user["_password"]
         resp = jsonify(user)
         resp.status_code = 200
         return resp
@@ -139,7 +141,11 @@ class TokenAPI(Resource):
     @jwt_required(refresh=True)
     def get(self):
         user_id = get_jwt_identity()
-        return jsonify(access_token=create_access_token(identity=user_id))
+        token = create_access_token(identity=user_id)
+        print(f"{token = }")
+        resp = jsonify(access_token=token)
+        resp.status_code = 200
+        return resp
 
     def post(self):
         parser = reqparse.RequestParser()
@@ -147,8 +153,8 @@ class TokenAPI(Resource):
         parser.add_argument("password")
         args = parser.parse_args()
         tokens = db_actions.get_tokens(**args)
-        response = jsonify(tokens)
-        response.status_code = 200
+        response = jsonify(tokens or {"message": "User or password wrong"})
+        response.status_code = HTTPStatus.ACCEPTED if tokens else HTTPStatus.NOT_FOUND
         return response
 
 

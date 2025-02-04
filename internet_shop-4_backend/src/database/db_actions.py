@@ -86,7 +86,7 @@ def get_user(user_id: str) -> User|None:
 
 
 def get_tokens(email:str, password: str) -> dict:
-    user = db.one_or_404(db.session.query(User).where(User.email==email))
+    user = db.one_or_404(db.session.query(User).where(User.email==email), description="User or password wrong")
     return user.get_tokens(password)
 
 
